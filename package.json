@@ -35,7 +35,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "lint": "node --check scripts/prefetch-electron.js && node --check scripts/claude-commands.js && node --check src/store.js && node --check src/workboard.js && node --check src/dream.js && node --check src/guard.js && node --check src/git.js && node --check src/checks.js && node --check src/prompts.js && node --check src/hooks.js && node --check src/mcp.js && node --check src/server.js && node --check src/connect.js && node --check bin/agenthaven.js && node --check desktop/main.js && node --check desktop/updater.js && node --check desktop/preload.js && node --check ui/app.js",
+    "lint": "node --check scripts/prefetch-electron.js && node --check scripts/claude-commands.js && node --check src/store.js && node --check src/workboard.js && node --check src/dream.js && node --check src/guard.js && node --check src/git.js && node --check src/checks.js && node --check src/prompts.js && node --check src/hooks.js && node --check src/mcp.js && node --check src/server.js && node --check src/connect.js && node --check src/notify.js && node --check bin/agenthaven.js && node --check desktop/main.js && node --check desktop/updater.js && node --check desktop/preload.js && node --check ui/app.js",
     "serve": "node bin/agenthaven.js serve",
     "mcp": "node bin/agenthaven.js mcp",
     "app": "electron .",
