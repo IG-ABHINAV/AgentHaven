@@ -5,6 +5,8 @@ and the installers are on the [Releases page](https://github.com/laaielichter/Ag
 
 ## Unreleased
 
+- **Desktop notifications** (desktop app): when an agent asks you a question or sends you a message, a review waits for you, a task escalates or a task runs out of budget, you get one system notification. A click opens the app on that task. *File → Desktop Notifications* turns them off. The dock shows the count on macOS; on Windows the taskbar button flashes. (#20)
+
 ## 0.6.0
 
 Seamless: agents connect by themselves, and the desktop app updates from the dashboard. [Full notes](docs/releases/v0.6.0.md)

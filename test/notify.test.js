@@ -65,3 +65,51 @@ test('notify: escalations notify, a person\'s own steps never do, long text is c
   assert.equal(n[1].body.length, 160);
   assert.ok(n[1].body.endsWith('…'));
 });
+
+test('notify: the watcher shows each event once, across restarts, and starts quiet on an old board', () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-watch-'));
+  const stateFile = path.join(dataDir, 'state', 'notify.json');
+  const s = new Store({ dataDir });
+  const old = s.createTask({ title: 'Old', actor: 'you' });
+  s.claimTask(old.id, { actor: 'claude' });
+  s.askQuestion(old.id, { actor: 'claude', to: 'humans', question: 'Before the app ran?' });
+
+  const shown = [];
+  const badges = [];
+  const make = () => notify.createWatcher({ dataDir, stateFile, show: (n) => shown.push(n), setBadge: (b) => badges.push(b) });
+  const w = make();
+  w.tick();
+  assert.deepEqual(shown, [], 'history from before the first start is not replayed');
+  assert.equal(badges.at(-1), 1, 'but it does count on the badge');
+
+  const t = s.createTask({ title: 'New', reviewer: 'you', actor: 'you' });
+  s.claimTask(t.id, { actor: 'codex' });
+  s.submitForReview(t.id, { actor: 'codex', summary: 'ready', verification: 'npm test' });
+  w.tick();
+  w.tick();
+  assert.equal(shown.length, 1);
+  assert.deepEqual({ title: shown[0].title, workspace: shown[0].workspace, taskId: shown[0].taskId }, { title: 'Review ready', workspace: 'default', taskId: t.id });
+  assert.equal(badges.at(-1), 2);
+
+  make().tick(); // a restart: the saved cursor keeps it from showing again
+  assert.equal(shown.length, 1);
+});
+
+test('notify: turned off, nothing shows and the badge is 0; a burst is summed up', () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-watch-'));
+  const s = new Store({ dataDir });
+  const shown = [];
+  let badge = null;
+  const w = notify.createWatcher({ dataDir, stateFile: path.join(dataDir, 'state', 'n.json'), show: (n) => shown.push(n), setBadge: (b) => { badge = b; } });
+  w.tick();
+  w.setEnabled(false);
+  s.sendMessage({ actor: 'codex', to: 'humans', body: 'one' });
+  w.tick();
+  assert.deepEqual(shown, []);
+  assert.equal(badge, 0);
+  w.setEnabled(true);
+  for (let i = 0; i < 5; i++) s.sendMessage({ actor: 'codex', to: 'humans', body: `m${i}` });
+  w.tick();
+  assert.equal(shown.length, 4);
+  assert.equal(shown[3].title, '2 more things need you');
+});

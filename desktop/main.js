@@ -5,15 +5,17 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, clipboard, dialog, ipcMain, shell } = require('electron');
 const { createUpdater } = require('./updater');
 const { start } = require('../src/server');
 const { defaultDataDir } = require('../src/store');
 const connect = require('../src/connect');
+const notify = require('../src/notify');
 
 let win;
 let url;
 let updater = null;
+let notifier = null;
 
 // The packaged app executable doubles as a Node runtime for the plugin.
 const entry = (agent) => connect.serverEntry({
@@ -93,6 +95,8 @@ function buildMenu() {
     { label: 'File', submenu: [
       { label: 'Open Data Folder', click: () => shell.openPath(defaultDataDir()) },
       { type: 'separator' },
+      { label: 'Desktop Notifications', type: 'checkbox', checked: notifier ? notifier.enabled : true, enabled: Boolean(notifier), click: (item) => notifier?.setEnabled(item.checked) },
+      { type: 'separator' },
       isMac ? { role: 'close' } : { role: 'quit' },
     ] },
     { role: 'editMenu' },
@@ -119,6 +123,41 @@ function buildMenu() {
       { label: 'Contribute: Good First Issues', click: () => shell.openExternal('https://github.com/laaielichter/AgentHaven/contribute') },
     ] },
   ]));
+}
+
+// ---- notifications when an agent needs a person (see src/notify.js) -------------------
+
+// Bring the window forward and let the dashboard open the task.
+function openFromNotification({ workspace, taskId }) {
+  if (!win || win.isDestroyed()) createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  const send = () => win.webContents.send('notify:open', { workspace, taskId });
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', send); else send();
+}
+
+let lastBadge = 0;
+
+function setupNotifications() {
+  if (!Notification.isSupported()) return;
+  if (process.platform === 'win32') app.setAppUserModelId('io.github.laaielichter.agenthaven'); // the installer's appId, or Windows drops the toasts
+  notifier = notify.createWatcher({
+    dataDir: defaultDataDir(),
+    // A subfolder, so the file is never mistaken for a workspace.
+    stateFile: path.join(app.getPath('userData'), 'state', 'notifications.json'),
+    show: (n) => {
+      const note = new Notification({ title: n.title, body: n.body, silent: false });
+      note.on('click', () => openFromNotification(n));
+      note.show();
+    },
+    setBadge: (count) => {
+      app.setBadgeCount(count); // dock (macOS) and launcher (Linux)
+      // Windows has no count badge: flash the taskbar button when something new waits.
+      if (process.platform === 'win32' && win && !win.isDestroyed() && count !== lastBadge) win.flashFrame(count > lastBadge && !win.isFocused());
+      lastBadge = count;
+    },
+  }).start();
 }
 
 // ---- automatic updates (see updater.js) --------------------------------------------
@@ -213,6 +252,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(async () => {
     recordRuntime();
     ({ url } = await start({ dataDir: defaultDataDir(), connections: connectionSettings() }));
+    setupNotifications();
     buildMenu();
     createWindow();
     setupUpdates();

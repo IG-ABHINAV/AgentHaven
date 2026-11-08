@@ -1,9 +1,15 @@
 'use strict';
-// The only bridge between the dashboard page and the desktop app: update controls.
+// The only bridge between the dashboard page and the desktop app: update controls,
+// and opening a task when a notification is clicked.
 // The dashboard also runs in a plain browser (agenthaven serve), where this object is absent.
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('agenthavenDesktop', {
+  onOpenTask: (fn) => {
+    const listener = (_e, target) => fn(target);
+    ipcRenderer.on('notify:open', listener);
+    return () => ipcRenderer.removeListener('notify:open', listener);
+  },
   updates: {
     get: () => ipcRenderer.invoke('updates:get'),
     check: () => ipcRenderer.invoke('updates:check'),

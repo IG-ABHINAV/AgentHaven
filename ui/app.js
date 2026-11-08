@@ -805,3 +805,17 @@ loadConnections();
 setInterval(() => { if (!document.hidden) loadConnections(); }, 60000);
 
 loadWorkspaces().then(() => { connect(); return refresh(true); }).catch(showError);
+
+// Desktop app: a click on a notification opens that task, in its own workspace.
+window.agenthavenDesktop?.onOpenTask?.(async ({ workspace: ws, taskId }) => {
+  try {
+    if (ws && ws !== workspace) {
+      workspace = ws;
+      remember();
+      await loadWorkspaces(ws);
+      connect();
+      await refresh(true);
+    }
+    if (taskId) await openTask(taskId);
+  } catch (err) { showError(err); }
+});
