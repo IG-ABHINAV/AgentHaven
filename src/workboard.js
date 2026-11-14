@@ -397,6 +397,7 @@ function applyCommand(store, raw) {
       case 'lead': { const r = store.takeLead({ actor }); return { ok: true, message: `${r.lead} is the lead` }; }
       case 'goal': {
         const [g, done] = rest.split(/\|\s*done when:/i).map((x) => x.trim());
+        if (!g) throw new Error('write "goal <text> | done when: <condition>"');
         store.setGoal({ actor, text: g, doneWhen: done });
         return { ok: true, message: 'goal set' };
       }

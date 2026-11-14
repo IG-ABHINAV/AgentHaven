@@ -607,6 +607,13 @@ test('workboard: inbox, questions, messages, split, lead and goal by file', () =
   assert.ok(r[1].ok && r[2].ok, JSON.stringify(r));
   text = fs.readFileSync(file, 'utf8');
   assert.doesNotMatch(text, /## Questions waiting/);
+  r = run('aider: goal', 'aider: goal | done when: tagged and published');
+  assert.deepEqual(r.map((x) => x.ok), [false, false]);
+  assert.match(r[0].message, /goal <text>/);
+  assert.equal(s.stats().goal.text, 'Release 1.0');
+  r = run('aider: goal Release 2.0');
+  assert.ok(r[0].ok, r[0].message);
+  assert.equal(s.stats().goal.text, 'Release 2.0');
 });
 
 test('setMode only accepts a real boolean, so a typo cannot flip agents-only mode (#73)', () => {
