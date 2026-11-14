@@ -533,6 +533,9 @@ class Store {
 
   setMode({ actor, agentsOnly }) {
     actor = requireText(actor, 'actor', 100);
+    // A missing or mistyped field used to switch the mode off (and "false" on)
+    // while the API still answered 200; refuse it before any write happens.
+    if (typeof agentsOnly !== 'boolean') throw new ValidationError('agentsOnly must be true or false');
     return this.withLock((data) => {
       if (!Store.isAuthority(data, actor)) throw new ConflictError('only a human or the lead changes the mode');
       data.settings.agentsOnly = Boolean(agentsOnly);
