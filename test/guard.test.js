@@ -108,6 +108,29 @@ test('guard: Shopify tokens are removed without catching lookalikes', () => {
   ]) assert.deepEqual(inspect(ordinary).secrets, [], ordinary);
 });
 
+test('guard: Telegram bot tokens are removed without catching lookalikes', () => {
+  const token = '123456789:' + 'A'.repeat(35);
+  for (const input of [
+    `TELEGRAM_BOT_TOKEN=${token}`,
+    `BOT_TOKEN=${token}`,
+    `curl https://api.telegram.org/bot${token}/getMe`,
+  ]) {
+    const scanned = inspect(input);
+    assert.deepEqual(scanned.secrets, ['Telegram bot token'], input);
+    assert.equal(scanned.text, input.replace(token, '[Telegram bot token removed]'), input);
+    assert.deepEqual(inspect(scanned.text).secrets, [], 'redaction must be idempotent');
+  }
+  assert.deepEqual(inspect(`1234567890:${'A'.repeat(35)}`), { text: '[Telegram bot token removed]', secrets: ['Telegram bot token'], injection: [] });
+
+  for (const ordinary of [
+    'build 123456789:ok',
+    'example.com:8080',
+    `123456789:${'A'.repeat(34)}`,
+    `123456789:${'A'.repeat(36)}`,
+    `1234567:${'A'.repeat(35)}`,
+  ]) assert.deepEqual(inspect(ordinary).secrets, [], ordinary);
+});
+
 test('guard: redacts Authorization header credentials without false positives', () => {
   const credential = 'a1B2c3D4e5F6g7H8i9J0';
   for (const [input, expected] of [
