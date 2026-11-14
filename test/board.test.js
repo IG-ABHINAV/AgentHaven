@@ -249,6 +249,12 @@ test('workboard: parsing helpers', () => {
   assert.deepEqual(n.dependsOn, ['task_abc', 'task_def']);
   assert.deepEqual(n.budget, { costUsd: 3 });
   assert.equal(n.review, true);
+  assert.throws(() => wb.parseNew('P5 fix it'), /priority must be P0 \(urgent\) to P3 \(low\)/);
+  assert.throws(() => wb.parseNew('P9 fix it'), /priority must be P0 \(urgent\) to P3 \(low\)/);
+  assert.throws(() => wb.parseNew('x [file: a.js]'), /unknown option \[file: \.\.\.\]; use files, after, skills, criteria, budget or \[review\]/);
+  assert.throws(() => wb.parseNew('x [depends: y]'), /unknown option \[depends: \.\.\.\]/);
+  assert.equal(wb.parseNew('Fix [WIP] banner').title, 'Fix [WIP] banner');
+  assert.equal(wb.parseNew('P1 another [files: a.js]').title, 'another');
 });
 
 test('MCP: vendor detection, next_task, progress and review tools', () => {

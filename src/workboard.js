@@ -259,6 +259,7 @@ function parseNew(rest) {
   let text = ` ${rest} `;
   const pm = text.match(/^\s*P([0-3])\s/i);
   if (pm) { opts.priority = Number(pm[1]); text = text.slice(pm[0].length - 1); }
+  else if (/^\s*P[4-9]\s/i.test(text)) throw new Error('priority must be P0 (urgent) to P3 (low)');
   text = text.replace(/\[review\]/i, () => { opts.review = true; return ''; });
   text = text.replace(/\[(files|after|skills|criteria|budget):([^\]]*)\]/gi, (_all, key, value) => {
     const k = key.toLowerCase();
@@ -270,6 +271,8 @@ function parseNew(rest) {
     if (k === 'budget') opts.budget = { costUsd: Number(value.replace(/[$\s]/g, '')) };
     return '';
   });
+  const unknown = text.match(/\[([A-Za-z][A-Za-z0-9_-]*):[^\]]*\]/);
+  if (unknown) throw new Error(`unknown option [${unknown[1]}: ...]; use files, after, skills, criteria, budget or [review]`);
   opts.title = text.trim();
   return opts;
 }
