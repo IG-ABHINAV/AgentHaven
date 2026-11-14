@@ -608,3 +608,20 @@ test('workboard: inbox, questions, messages, split, lead and goal by file', () =
   text = fs.readFileSync(file, 'utf8');
   assert.doesNotMatch(text, /## Questions waiting/);
 });
+
+test('setMode only accepts a real boolean, so a typo cannot flip agents-only mode (#73)', () => {
+  const s = tmpStore();
+  const initial = s.stats().agentsOnly;
+  for (const bad of [undefined, null, 'false', 'true', 0, 1, {}, []]) {
+    assert.throws(() => s.setMode({ actor: 'you', agentsOnly: bad }),
+      (err) => err.code === 'INVALID' && /agentsOnly must be true or false/.test(err.message),
+      `refused ${JSON.stringify(bad)}`);
+  }
+  assert.equal(s.stats().agentsOnly, initial, 'a refused call leaves the mode untouched');
+  assert.equal(s.setMode({ actor: 'you', agentsOnly: true }).agentsOnly, true);
+  assert.equal(s.stats().agentsOnly, true);
+  assert.equal(s.setMode({ actor: 'you', agentsOnly: false }).agentsOnly, false);
+  assert.equal(s.stats().agentsOnly, false);
+  assert.equal(s.activity().filter(e => e.action === 'settings.updated').length, 2,
+    'only the two valid calls were logged');
+});

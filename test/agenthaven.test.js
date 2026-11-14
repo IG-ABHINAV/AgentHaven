@@ -256,6 +256,29 @@ test('HTTP API: CRUD, conflict status, host/origin protection, UI', async () => 
   }
 });
 
+test('HTTP API: PATCH /api/mode refuses a missing or non-boolean agentsOnly without changing the mode (#73)', async () => {
+  const store = tmpStore();
+  const { server, url } = await start({ store });
+  try {
+    const json = { 'Content-Type': 'application/json' };
+    const patch = async (body) => {
+      const res = await fetch(`${url}api/mode`, { method: 'PATCH', headers: json, body: JSON.stringify(body) });
+      return { status: res.status, body: await res.json() };
+    };
+    assert.equal((await patch({ agentsOnly: true })).body.agentsOnly, true, 'the dashboard boolean still works');
+    for (const bad of [{}, { agentsOnly: 'false' }, { agentsonly: true }, { agentsOnly: 1 }]) {
+      const out = await patch(bad);
+      assert.equal(out.status, 400, `${JSON.stringify(bad)} must be a 400`);
+      assert.match(out.body.error, /agentsOnly must be true or false/);
+      assert.equal(store.stats().agentsOnly, true, `${JSON.stringify(bad)} left the mode unchanged`);
+    }
+    assert.equal((await patch({ agentsOnly: false })).body.agentsOnly, false, 'false still works');
+    assert.equal(store.stats().agentsOnly, false);
+  } finally {
+    server.close();
+  }
+});
+
 test('Node progress example claims a task, reports metrics and submits for review', async () => {
   const { dataDir } = tmpStore();
   const workspace = 'training';
