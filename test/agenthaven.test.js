@@ -173,6 +173,36 @@ test('CLI checks lists saved commands and only clears them explicitly', () => {
   assert.deepEqual(new Store({ dataDir: home }).getSettings().checks, []);
 });
 
+test('CLI accepts --name=value and refuses unknown flags and missing values', () => {
+  const cli = path.join(__dirname, '..', 'bin', 'agenthaven.js');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-cli-flags-'));
+  const env = { ...process.env, AGENTHAVEN_HOME: home, AGENTHAVEN_WORKSPACE: 'default' };
+  const run = (...args) => spawnSync(process.execPath, [cli, 'checks', ...args], { cwd: home, encoding: 'utf8', env });
+
+  const configured = run('npm test', '--workspace=demo');
+  assert.equal(configured.status, 0);
+  assert.equal(fs.existsSync(path.join(home, 'demo.json')), true);
+  assert.equal(fs.existsSync(path.join(home, 'default.json')), false);
+
+  const spaced = run('npm run lint', '--workspace', 'demo');
+  assert.equal(spaced.status, 0);
+  assert.deepEqual(new Store({ dataDir: home, workspace: 'demo' }).getSettings().checks.map((c) => c.command), ['npm run lint']);
+
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-cli-flags-'));
+  const freshEnv = { ...process.env, AGENTHAVEN_HOME: fresh, AGENTHAVEN_WORKSPACE: 'default' };
+  const freshRun = (...args) => spawnSync(process.execPath, [cli, 'checks', ...args], { cwd: fresh, encoding: 'utf8', env: freshEnv });
+  for (const [args, pattern] of [
+    [['npm test', '--worksapce', 'demo'], /unknown option --worksapce/],
+    [['npm test', '--workspace'], /--workspace needs a value/],
+  ]) {
+    const result = freshRun(...args);
+    assert.equal(result.status, 1, args.join(' '));
+    assert.match(result.stderr, pattern);
+    assert.match(result.stderr, /agenthaven help/);
+    assert.deepEqual(fs.readdirSync(fresh), []);
+  }
+});
+
 test('tasks: create, claim, conflict-safe update, handoff, activity', () => {
   const s = tmpStore();
   const t = s.createTask({ title: 'Write docs', actor: 'claude' });

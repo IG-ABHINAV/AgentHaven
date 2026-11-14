@@ -3,7 +3,34 @@
 const path = require('node:path');
 const { Store, defaultDataDir } = require('../src/store');
 
-const [cmd = 'help', ...args] = process.argv.slice(2);
+const [cmd = 'help', ...rawArgs] = process.argv.slice(2);
+// Flags the CLI understands, split by whether they take a value.
+const VALUE_FLAGS = new Set(['port', 'workspace', 'agent', 'tools', 'base']);
+const SWITCH_FLAGS = new Set(['list', 'watch', 'clear', 'prompt', 'version', 'help']);
+// `--name=value` works the same as `--name value` for every flag.
+const args = [];
+for (const a of rawArgs) {
+  const m = a.match(/^--([A-Za-z][A-Za-z0-9_-]*)=(.*)$/);
+  if (m) args.push(`--${m[1]}`, m[2]);
+  else args.push(a);
+}
+const fail = (msg) => { console.error(msg); process.exit(1); };
+// Refuse flags the command does not know, and flags without the value they
+// need, before anything is read or written. `hook` stays tolerant: editors
+// call it and it must never fail on an extra argument. `--off` keeps its own
+// usage error in the `connect` command, and `checks --clear` keeps its own.
+if (cmd !== 'hook') {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (!a.startsWith('--')) continue;
+    const name = a.slice(2);
+    if (!VALUE_FLAGS.has(name) && !SWITCH_FLAGS.has(name) && name !== 'off') fail(`unknown option --${name}; run \`agenthaven help\` for the options this command takes`);
+    if (VALUE_FLAGS.has(name) && (i + 1 >= args.length || args[i + 1].startsWith('--'))) {
+      if (cmd === 'checks' && args.includes('--clear')) continue;
+      fail(`--${name} needs a value; run \`agenthaven help\` for the options this command takes`);
+    }
+  }
+}
 const flag = (name, fallback) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : fallback;
@@ -11,7 +38,6 @@ const flag = (name, fallback) => {
 const has = (name) => args.includes(`--${name}`);
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !['--watch'].includes(args[i - 1])));
 const workspace = flag('workspace', process.env.AGENTHAVEN_WORKSPACE || 'default');
-const fail = (msg) => { console.error(msg); process.exit(1); };
 
 // A CLI is not a library: a mistake the user can fix gets one line, a real bug
 // keeps its stack trace. The store marks fixable errors with a code (INVALID,
