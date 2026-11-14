@@ -71,6 +71,42 @@ test('CLI tools rejects unknown profiles', () => {
   }
 });
 
+test('CLI prints one line for mistakes a person can fix, and a stack for real bugs', () => {
+  const cli = path.join(__dirname, '..', 'bin', 'agenthaven.js');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-cli-errors-'));
+  const env = { ...process.env, AGENTHAVEN_HOME: home, AGENTHAVEN_WORKSPACE: 'default', AGENTHAVEN_DEBUG: '' };
+  const run = (args, extra = {}) => spawnSync(process.execPath, [cli, ...args], {
+    cwd: os.tmpdir(), encoding: 'utf8', env: { ...env, ...extra },
+  });
+  const cases = [
+    [['radar'], /no repository set/],
+    [['repo', fs.mkdtempSync(path.join(os.tmpdir(), 'ah-notgit-'))], /not a git repository/],
+    [['status', '--workspace', '../evil'], /invalid workspace name/],
+    [['connect', '--off', 'nope'], /unknown client nope/],
+    [['mcp', '--tools', 'bogus'], /Unknown tool profile: bogus/],
+    [['serve', '--port', 'abc'], /--port must be a number from 0 to 65535/],
+  ];
+  for (const [args, message] of cases) {
+    const label = args.join(' ');
+    const r = run(args);
+    assert.equal(r.status, 1, `${label}: exit 1`);
+    assert.equal(r.stdout, '', `${label}: nothing on stdout`);
+    assert.match(r.stderr, message, `${label}: the useful message`);
+    assert.equal(r.stderr.trimEnd().split('\n').length, 1, `${label}: one line on stderr`);
+    assert.doesNotMatch(r.stderr, /\bat /, `${label}: no stack frame`);
+  }
+  // A real bug still gives enough detail to report it.
+  const badFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ah-badhome-')), 'not-a-dir');
+  fs.writeFileSync(badFile, 'x');
+  const realBug = run(['status'], { AGENTHAVEN_HOME: badFile });
+  assert.equal(realBug.status, 1);
+  assert.match(realBug.stderr, /\bat /, 'an unexpected error keeps its stack trace');
+  const debug = run(['radar'], { AGENTHAVEN_DEBUG: '1' });
+  assert.equal(debug.status, 1);
+  assert.match(debug.stderr, /ValidationError: no repository set/);
+  assert.match(debug.stderr, /\bat /, 'AGENTHAVEN_DEBUG=1 shows the stack for a fixable error too');
+});
+
 test('CLI connect --off requires a client before changing configuration', () => {
   const cli = path.join(__dirname, '..', 'bin', 'agenthaven.js');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-connect-off-'));

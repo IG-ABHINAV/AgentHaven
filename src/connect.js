@@ -114,7 +114,7 @@ function currentEntry(client) {
 
 function install(clientId, entry, opts = {}) {
   const client = clients(opts)[clientId];
-  if (!client) throw new Error(`unknown client ${clientId}`);
+  if (!client) throw Object.assign(new Error(`unknown client ${clientId}`), { code: 'INVALID' });
   if (client.format === 'toml') {
     let text = readIfExists(client.file) || '';
     backup(client, text);
@@ -133,7 +133,7 @@ function install(clientId, entry, opts = {}) {
 
 function uninstall(clientId, opts = {}) {
   const client = clients(opts)[clientId];
-  if (!client) throw new Error(`unknown client ${clientId}`);
+  if (!client) throw Object.assign(new Error(`unknown client ${clientId}`), { code: 'INVALID' });
   if (client.format === 'toml') {
     const text = readIfExists(client.file);
     if (!text || !TOML_RE.test(text)) return client;

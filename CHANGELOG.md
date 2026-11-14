@@ -5,6 +5,7 @@ and the installers are on the [Releases page](https://github.com/laaielichter/Ag
 
 ## Unreleased
 
+- **Expected mistakes on the command line print one line, not a stack trace:** `radar`, `repo <folder that is not a git repo>`, an invalid `--workspace`, `connect --off <unknown client>` and `mcp --tools <unknown profile>` now print the message and exit 1; `serve --port abc` gets a short `--port must be a number from 0 to 65535`. Errors that are not caused by user input still show their stack, and `AGENTHAVEN_DEBUG=1` shows it for any error. Thanks to @17302513901yh-lang! (#42)
 - **A `progress` line without a percentage is refused**: `WORKBOARD.md` now answers ✗ with the documented syntax for a line that has neither a valid `N%` nor any `| key=value` metrics, instead of silently recording nothing with a ✓ and a "—%" result. A metrics-only line stays valid. Thanks to @17302513901yh-lang! (#44, #55)
 
 ## 0.8.2

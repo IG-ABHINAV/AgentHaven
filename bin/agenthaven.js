@@ -13,6 +13,21 @@ const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[
 const workspace = flag('workspace', process.env.AGENTHAVEN_WORKSPACE || 'default');
 const fail = (msg) => { console.error(msg); process.exit(1); };
 
+// A CLI is not a library: a mistake the user can fix gets one line, a real bug
+// keeps its stack trace. The store marks fixable errors with a code (INVALID,
+// NOT_FOUND, CONFLICT) and so does the MCP tool-profile parser. Handling this
+// at the process boundary also covers async paths (serve, hook, run-checks)
+// without reindenting the whole command switch below. Set AGENTHAVEN_DEBUG=1
+// to see the stack of a fixable error too.
+const EXPECTED_ERROR_CODES = new Set(['INVALID', 'NOT_FOUND', 'CONFLICT']);
+const report = (err) => {
+  if (err instanceof Error && EXPECTED_ERROR_CODES.has(err.code) && process.env.AGENTHAVEN_DEBUG !== '1') fail(err.message);
+  console.error(err instanceof Error ? err.stack : err);
+  process.exit(1);
+};
+process.on('uncaughtException', report);
+process.on('unhandledRejection', report);
+
 const HELP = `AgentHaven — one shared work board for all your AI agents, from any vendor
 
 Usage:
@@ -70,11 +85,14 @@ switch (cmd) {
     }
     break;
   }
-  case 'serve':
-    require('../src/server').start({ port: Number(flag('port', 4777)), store: store(), onError: (err, ws) => console.error(`[workboard ${ws}] ${err.message}`) })
+  case 'serve': {
+    const port = Number(flag('port', 4777));
+    if (!Number.isInteger(port) || port < 0 || port > 65535) fail('--port must be a number from 0 to 65535');
+    require('../src/server').start({ port, store: store(), onError: (err, ws) => console.error(`[workboard ${ws}] ${err.message}`) })
       .then(({ url }) => console.log(`AgentHaven dashboard: ${url}  (data: ${defaultDataDir()})\nEnjoying AgentHaven? A star on GitHub helps other people find it: https://github.com/laaielichter/AgentHaven`))
       .catch((err) => fail(err.message));
     break;
+  }
   case 'connect': {
     const connect = require('../src/connect');
     const entryFor = (agent) => connect.nodeEntryFor(agent, workspace);
