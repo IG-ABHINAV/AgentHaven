@@ -27,7 +27,12 @@ test('Inbox review requires verification; reject requires a reason and a differe
   store.claimTask(task.id, { actor: 'worker' });
   const short = task.id.slice(5, 11);
 
-  let results = run(`worker: review ${short} ready`);
+  let results = run(`outsider: review ${short} ready | verified: tests passed`);
+  assert.equal(results[0].ok, false);
+  assert.match(results[0].message, /only worker can submit/i);
+  assert.equal(store.getTask(task.id).status, 'doing');
+
+  results = run(`worker: review ${short} ready`);
   assert.equal(results[0].ok, false);
   assert.match(results[0].message, /verif/i);
   assert.equal(store.getTask(task.id).status, 'doing');
@@ -37,16 +42,21 @@ test('Inbox review requires verification; reject requires a reason and a differe
   assert.equal(store.getTask(task.id).status, 'review');
   assert.notEqual(store.getTask(task.id).reviewer, 'worker');
 
-  results = run(`worker: approve ${short}`, `reviewer: reject ${short}`);
-  assert.deepEqual(results.map((r) => r.ok), [false, false]);
+  results = run(`worker: approve ${short}`, `worker: reject ${short} not ready`, `reviewer: reject ${short}`);
+  assert.deepEqual(results.map((r) => r.ok), [false, false, false]);
   assert.match(results[0].message, /own work/);
-  assert.match(results[1].message, /comment/i);
+  assert.match(results[1].message, /own work/);
+  assert.match(results[2].message, /comment/i);
   assert.equal(store.getTask(task.id).status, 'review');
 
   results = run(`reviewer: reject ${short} missing permission test`);
   assert.equal(results[0].ok, true, results[0].message);
   assert.equal(store.getTask(task.id).status, 'doing');
   assert.equal(store.getTask(task.id).assignee, 'worker');
+
+  results = run(`worker: review ${short} fixed | verified: permission tests passed`, `reviewer: approve ${short}`);
+  assert.deepEqual(results.map((r) => r.ok), [true, true]);
+  assert.equal(store.getTask(task.id).status, 'done');
 });
 
 test('Inbox resolve refuses a non-lead actor and permits the lead', () => {
