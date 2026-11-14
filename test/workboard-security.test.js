@@ -40,7 +40,7 @@ test('Inbox review requires verification; reject requires a reason and a differe
   results = run(`worker: review ${short} ready | verified: security checks passed`);
   assert.equal(results[0].ok, true, results[0].message);
   assert.equal(store.getTask(task.id).status, 'review');
-  assert.notEqual(store.getTask(task.id).reviewer, 'worker');
+  assert.equal(store.getTask(task.id).reviewer, 'reviewer');
 
   results = run(`worker: approve ${short}`, `worker: reject ${short} not ready`, `reviewer: reject ${short}`);
   assert.deepEqual(results.map((r) => r.ok), [false, false, false]);
@@ -53,6 +53,9 @@ test('Inbox review requires verification; reject requires a reason and a differe
   assert.equal(results[0].ok, true, results[0].message);
   assert.equal(store.getTask(task.id).status, 'doing');
   assert.equal(store.getTask(task.id).assignee, 'worker');
+  assert.ok(store.getTask(task.id).comments.some((c) => c.kind === 'changes-requested' && c.body === 'missing permission test'));
+  assert.ok(store.inbox({ actor: 'worker', markRead: false }).messages.some((m) =>
+    m.from === 'reviewer' && m.body.includes('Changes requested') && m.body.includes('missing permission test')));
 
   results = run(`worker: review ${short} fixed | verified: permission tests passed`, `reviewer: approve ${short}`);
   assert.deepEqual(results.map((r) => r.ok), [true, true]);
